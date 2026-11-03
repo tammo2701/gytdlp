@@ -70,6 +70,18 @@ try {
     $launcherCmd = Join-Path $InstallDir 'gytdlp.cmd'
     Set-Content -LiteralPath $launcherCmd -Encoding ASCII -Value ('@echo off' + [Environment]::NewLine + 'start "" "' + $pythonw + '" "' + (Join-Path $InstallDir 'app.py') + '" %*')
 
+    Write-Step 'gytdlp in der Windows-Suche registrieren'
+    $startMenu = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
+    New-Item -ItemType Directory -Force -Path $startMenu | Out-Null
+    $shortcutPath = Join-Path $startMenu 'gytdlp.lnk'
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = $pythonw
+    $shortcut.Arguments = '"' + (Join-Path $InstallDir 'app.py') + '"'
+    $shortcut.WorkingDirectory = $InstallDir
+    $shortcut.Description = 'gytdlp – YouTube-Downloads verwalten'
+    $shortcut.Save()
+
     Write-Step 'yt-dlp von den offiziellen GitHub-Releases laden'
     $ytdlpDir = Join-Path $InstallDir 'ytdlp'
     New-Item -ItemType Directory -Force -Path $ytdlpDir | Out-Null
@@ -79,6 +91,7 @@ try {
     Set-Content -LiteralPath (Join-Path $InstallDir '.gytdlp-commit') -Value 'installed' -Encoding ASCII
 
     Write-Host "`nInstallation abgeschlossen: $InstallDir" -ForegroundColor Green
+    Write-Host 'gytdlp ist im Startmenue und in der Windows-Suche verfuegbar.' -ForegroundColor Green
     Write-Host 'Starte gytdlp...'
     Start-Process -FilePath $pythonw -ArgumentList ('"' + (Join-Path $InstallDir 'app.py') + '"')
     Write-Host 'PATH ist gesetzt. Oeffne neue CMD- oder PowerShell-Fenster, damit gytdlp dort verfuegbar ist.'
