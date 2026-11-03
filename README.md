@@ -4,9 +4,9 @@ Eine kleine Windows-GUI zur Verwaltung von [yt-dlp](https://github.com/yt-dlp/yt
 
 ## Installation
 
-Entpacke das ZIP und starte `installer.bat`. Das Skript installiert Python, falls `py` noch nicht verfügbar ist, kopiert gytdlp nach `%ProgramFiles%\gytdlp`, trägt diesen Ordner in den Benutzer-PATH ein und lädt `yt-dlp.exe` aus den offiziellen GitHub-Releases. Es benötigt Internetzugriff. Für `%ProgramFiles%` gelten die Schreibrechte des angemeldeten Benutzers; falls Windows den Zugriff verweigert, starte die BAT mit passenden Rechten.
+Entpacke das ZIP und starte `installer.bat`. Windows fragt nach Administratorrechten, weil gytdlp nach `%ProgramFiles%\gytdlp` kopiert wird. Das Installerfenster zeigt jeden Schritt und wartet bei Erfolg oder Fehler auf Enter. Python wird bei Bedarf von python.org installiert, `yt-dlp.exe` kommt aus den offiziellen GitHub-Releases. Der Installer trägt den Ordner in den Benutzer-PATH ein und erstellt den Befehl `gytdlp` für neu geöffnete CMD- und PowerShell-Fenster.
 
-Danach startet die GUI mit `gytdlp` in neu geöffneten CMD- oder PowerShell-Fenstern. Die GUI prüft beim Start auf eine neue Version dieses Repositorys; über **gytdlp aktualisieren** wird der aktuelle Stand des `main`-Branches installiert.
+Danach startet die GUI mit `gytdlp` in neu geöffneten CMD- oder PowerShell-Fenstern. Die GUI prüft beim Start auf eine neue Version dieses Repositorys; über **gytdlp aktualisieren** wird der aktuelle Stand des Standardbranches installiert.
 
 ## Funktionen
 

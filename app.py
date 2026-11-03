@@ -198,7 +198,7 @@ class App(tk.Tk):
             with zipfile.ZipFile(archive) as zf:
                 zf.extractall(stage)
             source_root = next(stage.iterdir())
-            for name in ("app.py", "README.md", "installer.bat"):
+            for name in ("app.py", "README.md", "installer.bat", "installer.ps1"):
                 src = source_root / name
                 if src.exists():
                     shutil.copy2(src, INSTALL_DIR / name)
