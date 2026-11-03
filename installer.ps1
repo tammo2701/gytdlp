@@ -3,24 +3,64 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $InstallDir = Join-Path $env:ProgramFiles 'gytdlp'
 
-function Write-Step([string]$Message) { Write-Host "`n==> $Message" -ForegroundColor Cyan }
-function Fail([string]$Message) { Write-Host "FEHLER: $Message" -ForegroundColor Red; Read-Host 'Enter zum Schliessen'; exit 1 }
+function Write-Step([string]$Message) {
+    if ($script:statusLabel) {
+        $script:statusLabel.Text = $Message
+        [Windows.Forms.Application]::DoEvents()
+    }
+}
+function Fail([string]$Message) {
+    if ($script:form) {
+        $script:progress.Style = 'Blocks'
+        $script:progress.Value = 0
+        $script:statusLabel.Text = 'Installation fehlgeschlagen'
+        [Windows.Forms.MessageBox]::Show($script:form, $Message, 'gytdlp Installation', 'OK', 'Error') | Out-Null
+        $script:form.Close()
+    } else {
+        [Windows.Forms.MessageBox]::Show($Message, 'gytdlp Installation', 'OK', 'Error') | Out-Null
+    }
+    exit 1
+}
 
 try {
     $Source = (Resolve-Path -LiteralPath $Source).Path
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Host 'Windows fragt jetzt nach Administratorrechten fuer die Installation in Programme.' -ForegroundColor Yellow
+        [Windows.Forms.MessageBox]::Show('Windows fragt jetzt nach Administratorrechten, damit gytdlp in Programme installiert werden kann.', 'gytdlp Installation', 'OK', 'Information') | Out-Null
         $scriptPath = $PSCommandPath.Replace("'", "''")
         $sourcePath = $Source.Replace("'", "''")
         $command = "& '$scriptPath' -Source '$sourcePath'"
         $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-        Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
+        Start-Process -FilePath 'powershell.exe' -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $encodedCommand"
         exit 0
     }
 
-    Write-Host 'gytdlp wird installiert. Dieses Fenster bleibt offen und zeigt den Fortschritt.' -ForegroundColor Green
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    [Windows.Forms.Application]::EnableVisualStyles()
+    $script:form = New-Object Windows.Forms.Form
+    $script:form.Text = 'gytdlp installieren'
+    $script:form.ClientSize = New-Object Drawing.Size(480, 150)
+    $script:form.StartPosition = 'CenterScreen'
+    $script:form.FormBorderStyle = 'FixedDialog'
+    $script:form.MaximizeBox = $false
+    $script:form.MinimizeBox = $false
+    $script:form.BackColor = [Drawing.Color]::FromArgb(248, 250, 252)
+    $script:statusLabel = New-Object Windows.Forms.Label
+    $script:statusLabel.Location = New-Object Drawing.Point(24, 24)
+    $script:statusLabel.Size = New-Object Drawing.Size(432, 28)
+    $script:statusLabel.Font = New-Object Drawing.Font('Segoe UI', 10)
+    $script:statusLabel.Text = 'Installation wird vorbereitet…'
+    $script:form.Controls.Add($script:statusLabel)
+    $script:progress = New-Object Windows.Forms.ProgressBar
+    $script:progress.Location = New-Object Drawing.Point(24, 66)
+    $script:progress.Size = New-Object Drawing.Size(432, 18)
+    $script:progress.Style = 'Marquee'
+    $script:progress.MarqueeAnimationSpeed = 25
+    $script:form.Controls.Add($script:progress)
+    $script:form.Show()
+    [Windows.Forms.Application]::DoEvents()
     $py = Get-Command py.exe -ErrorAction SilentlyContinue
     if (-not $py) {
         Write-Step 'Python von python.org laden und installieren'
@@ -30,7 +70,7 @@ try {
         $version = $versions[0]
         $pythonInstaller = Join-Path $env:TEMP 'gytdlp-python-installer.exe'
         $pythonUrl = "https://www.python.org/ftp/python/$version/python-$version-amd64.exe"
-        Write-Host "Lade $pythonUrl"
+        Write-Step 'Python wird von python.org heruntergeladen…'
         Invoke-WebRequest $pythonUrl -OutFile $pythonInstaller -UseBasicParsing
         $process = Start-Process -FilePath $pythonInstaller -ArgumentList '/quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 Include_test=0' -Wait -PassThru
         Remove-Item $pythonInstaller -Force -ErrorAction SilentlyContinue
@@ -58,7 +98,7 @@ try {
     $acl.SetAccessRule($rule)
     Set-Acl -LiteralPath $InstallDir -AclObject $acl
 
-    Write-Step 'gytdlp zum Benutzer- und System-PATH hinzufuegen'
+    Write-Step 'gytdlp wird zum Benutzer- und System-PATH hinzugefügt…'
     foreach ($scope in @('User', 'Machine')) {
         $savedPath = [Environment]::GetEnvironmentVariable('Path', $scope)
         $entries = @($savedPath -split ';' | Where-Object { $_ })
@@ -90,12 +130,12 @@ try {
     if ((Get-Item -LiteralPath $ytdlpFile).Length -lt 1000000) { throw 'Die heruntergeladene yt-dlp.exe ist unvollstaendig.' }
     Set-Content -LiteralPath (Join-Path $InstallDir '.gytdlp-commit') -Value 'installed' -Encoding ASCII
 
-    Write-Host "`nInstallation abgeschlossen: $InstallDir" -ForegroundColor Green
-    Write-Host 'gytdlp ist im Startmenue und in der Windows-Suche verfuegbar.' -ForegroundColor Green
-    Write-Host 'Starte gytdlp...'
+    Write-Step 'Installation abgeschlossen. gytdlp wird gestartet…'
     Start-Process -FilePath $pythonw -ArgumentList ('"' + (Join-Path $InstallDir 'app.py') + '"')
-    Write-Host 'PATH ist gesetzt. Oeffne neue CMD- oder PowerShell-Fenster, damit gytdlp dort verfuegbar ist.'
-    Read-Host 'Enter zum Schliessen'
+    $script:progress.Style = 'Blocks'
+    $script:progress.Value = 100
+    Start-Sleep -Milliseconds 900
+    $script:form.Close()
 } catch {
     Fail $_.Exception.Message
 }
