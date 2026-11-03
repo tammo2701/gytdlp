@@ -12,8 +12,11 @@ try {
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Host 'Windows fragt jetzt nach Administratorrechten fuer die Installation in Programme.' -ForegroundColor Yellow
-        $args = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Source `"$Source`""
-        Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $args
+        $scriptPath = $PSCommandPath.Replace("'", "''")
+        $sourcePath = $Source.Replace("'", "''")
+        $command = "& '$scriptPath' -Source '$sourcePath'"
+        $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
         exit 0
     }
 
@@ -55,12 +58,15 @@ try {
     $acl.SetAccessRule($rule)
     Set-Acl -LiteralPath $InstallDir -AclObject $acl
 
-    Write-Step 'gytdlp zum Benutzer-PATH hinzufuegen'
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @($userPath -split ';' | Where-Object { $_ })
-    if ($entries -notcontains $InstallDir) {
-        [Environment]::SetEnvironmentVariable('Path', (($entries + $InstallDir) -join ';'), 'User')
+    Write-Step 'gytdlp zum Benutzer- und System-PATH hinzufuegen'
+    foreach ($scope in @('User', 'Machine')) {
+        $savedPath = [Environment]::GetEnvironmentVariable('Path', $scope)
+        $entries = @($savedPath -split ';' | Where-Object { $_ })
+        if (-not ($entries | Where-Object { $_.TrimEnd('\') -ieq $InstallDir.TrimEnd('\') })) {
+            [Environment]::SetEnvironmentVariable('Path', (($entries + $InstallDir) -join ';'), $scope)
+        }
     }
+    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
     $launcherCmd = Join-Path $InstallDir 'gytdlp.cmd'
     Set-Content -LiteralPath $launcherCmd -Encoding ASCII -Value ('@echo off' + [Environment]::NewLine + 'start "" "' + $pythonw + '" "' + (Join-Path $InstallDir 'app.py') + '" %*')
 
