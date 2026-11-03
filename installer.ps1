@@ -24,6 +24,9 @@ function Fail([string]$Message) {
 
 try {
     $Source = (Resolve-Path -LiteralPath $Source).Path
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    [Windows.Forms.Application]::EnableVisualStyles()
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -36,9 +39,6 @@ try {
         exit 0
     }
 
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    [Windows.Forms.Application]::EnableVisualStyles()
     $script:form = New-Object Windows.Forms.Form
     $script:form.Text = 'gytdlp installieren'
     $script:form.ClientSize = New-Object Drawing.Size(480, 150)
